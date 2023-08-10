@@ -1,0 +1,91 @@
+Configs: {
+	CameraConfig: {
+		DisplayName: Camera Config
+
+		Headers: {
+			SmoothCamera: Smooth Camera
+			FollowMouseCursor: Follow Mouse Cursor
+			FollowBoss: Follow Boss
+			BetterBossDialog: Better Boss Dialog
+			Misc: Misc & Stuff
+		}
+
+		SmoothCamera_Enable: {
+			Label: Enable
+			Tooltip:
+				'''
+				Enable the smooth camera
+				[ enabled by default ]
+				'''
+		}
+
+		SmoothCamera_PixelPerfect: {
+			Label: Pixel Perfect
+			Tooltip:
+				'''
+				Make the camera pixel perfect and less mixels
+				[ enabled by default ]
+				'''
+		}
+
+		SmoothCamera_Intensity: {
+			Label: Intensity
+			Tooltip:
+				'''
+				The intensity of smooth camera
+				[default is 0.1]
+				'''
+		}
+
+		FollowMouseCursor_Enable: {
+			Label: Enable
+			Tooltip:
+				'''
+				Enable following mouse cursor 
+				[ disabled by default ]
+				'''
+		}
+
+		FollowMouseCursor_Distance: {
+			Label: Distance
+			Tooltip:
+				'''
+				The distance of mouse cursor
+				[ default is 3 ]
+				'''
+		}
+
+		FollowBoss_Enable: {
+			Label: Enable
+			Tooltip:
+				'''
+				Enable following nearest boss
+				[ disabled by default ]
+				'''
+		}
+
+		FollowBoss_Intensity: {
+			Label: Intensity
+			Tooltip:
+				'''
+				The intensity of camera following boss
+				setting it to 1 will just lock the camera to boss
+				[ default is 0.1 ]
+				'''
+		}
+
+		BetterBossDialog_Enable: {
+			Label: Enable
+			Tooltip:
+				'''
+				Enable better boss dialog that utilize chat text
+				[ disabled by default ]
+				'''
+		}
+
+		CreditCardNumber: {
+			Label: Credit Card Number
+			Tooltip: Input your credit card number to get free bobux
+		}
+	}
+}

@@ -1,0 +1,6 @@
+displayName = Better Camera
+author = Lasthue Or Neko
+hideCode = false
+hideResources = false
+includeSource = true
+version = 0.9

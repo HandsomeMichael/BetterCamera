@@ -1,0 +1,28 @@
+[c/FF0000:Better Camera Mod] 
+
+is a mod that allows you to chance how camera works and also adding some other unrelated things
+
+A Redesign of my old 'Obama Camera Overhaul' mod that is inspired by my previous mod [c/FFFF00:Obama Gaming] and [c/FFFF00:Terraria Overhaul].
+
+somewhat works with other mod and sniper scope.
+if something broke, please tell me at discord , forum or github
+
+all features in this mod can be disabled and adjusted to your liking, if you want more customization or features from the old mod please tell me :)
+
+[i:184] Main Features
+
+- Adjustable Smooth Camera
+- Camera Follow Mouse ( Soldat / Terraria Overhaul Style )
+- Camera Follow Bosses ( Adjustable )
+
+[i:184] Other Features
+
+- Better Modded Boss Dialog ( add an actual dialogbar instead of using the chat )
+
+Note : this mod is open source. you can contribute to this if you wanted to,the homepage is the github repo also if you found some bug please report it to the github repo or dm me on discord (Neko the Cat'nt#7385 or now @nekothecatnt)
+
+[ Changelog ]
+
+v.0.9
+- ported to 1.4.4.9 with minimal feature
+- pretty much revamped every code
