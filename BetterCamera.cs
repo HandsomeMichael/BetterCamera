@@ -1,8 +1,10 @@
+// terraria stuff
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 
+// for drawing
 using Terraria.UI;
 using Terraria.UI.Chat;
 using Terraria.DataStructures;
@@ -12,15 +14,19 @@ using Terraria.Localization;
 using Terraria.Utilities;
 using Terraria.GameContent;
 
+// for vectors and other miscrosoft stuff
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+// detouring
 using MonoMod.RuntimeDetour.HookGen;
 
+// reflection , list , and also config component
 using System;
 using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 using BetterCamera.Utils;
 
@@ -33,10 +39,13 @@ namespace BetterCamera
 {
 	public class CameraConfig : ModConfig
 	{
-		// ConfigScope.ClientSide should be used for client side, usually visual or audio tweaks.
-		// ConfigScope.ServerSide should be used for basically everything else, including disabling items or changing NPC behaviours
 		public override ConfigScope Mode => ConfigScope.ClientSide;
 		public static CameraConfig get => ModContent.GetInstance<CameraConfig>();
+
+		// save the config , this requires reflection though.
+		public static void SaveConfig(){
+			typeof(ConfigManager).GetMethod("Save", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[1] { get });
+		}
 
 		// Smooth Camera Settings
 
@@ -69,6 +78,8 @@ namespace BetterCamera
 		[Slider] 
 		public int FollowMouseCursor_Distance;
 
+		// Follow Boss
+
 		[Header("FollowBoss")]
 
 		[DefaultValue(false)] 
@@ -79,24 +90,52 @@ namespace BetterCamera
 		[DefaultValue(0.01f)]
 		[Slider] 
 		public float FollowBoss_Intensity;
+		
+		// Dialog 
 
 		[Header("BetterBossDialog")]
 
 		[DefaultValue(false)] 
 		public bool BetterBossDialog_Enable;
 
+		[Range(0.5f, 5f)]
+		[Increment(0.5f)]
+		[DefaultValue(3f)]
+		[Slider] 
+		public float BetterBossDialog_Time;
+
+		[Range(0.1f, 2f)]
+		[Increment(0.1f)]
+		[DefaultValue(1f)]
+		[Slider] 
+		public float BetterBossDialog_Scale;
+
+		[DefaultValue(false)] 
+		public bool BetterBossDialog_UnlockOffset;
+
+		[JsonIgnore]
+		public Vector2 BetterBossDialog_Offset = Vector2.Zero;
+
+		public List<string> BetterBossDialog_BlackList = new List<string>() {
+			"has awoken","was slain"
+		};
+
 		[Header("Misc")]
 
 		public string CreditCardNumber;
 		public override void OnChanged()
 		{
-			if (this == null) return;
+
+			// reset camera cache
+			BetterCamera.ResetCameraCache();
+
+			// dialog test
 			if (DialogRenderer.dialogText == null) return;
 
 			if (CreditCardNumber == "test") 
 			{
 				DialogRenderer.dialogText.Set("Vaema",
-				"lorea oihfciuahiuha iaLSCbkhjbdkhwhbsjvkwjkgnj\nioawhdoih uaishduiladhiahduisah",
+				"ambatukam ambatukam ambatukam\nambatukamambatukamambatukamambatukam",
 				Color.Orange);
 			}
 		}
@@ -105,9 +144,11 @@ namespace BetterCamera
 	// the base of the camera features
 	public class CameraPlayer : ModPlayer 
 	{
+		// a quick reset
 		public override void OnEnterWorld() 
 		{
-			BetterCamera.screenCache = Player.Center - new Vector2(Main.screenWidth/2,Main.screenHeight/2);
+			BetterCamera.ResetCameraCache();
+			//BetterCamera.screenCache = Player.Center - new Vector2(Main.screenWidth/2,Main.screenHeight/2);
 		}
 
 		public override void ModifyScreenPosition()
@@ -118,7 +159,7 @@ namespace BetterCamera
 
 			// smooth camera
 
-			if (CameraConfig.get.SmoothCamera_Enable) 
+			if (CameraConfig.get.SmoothCamera_Enable && !BetterCamera.QuickLookAtNPC.Current) 
 			{
 				Main.screenPosition = BetterCamera.screenCache;
 				BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Player.Center - centerScreen , 0.1f);
@@ -126,7 +167,7 @@ namespace BetterCamera
 
 			// follow boss
 
-			if (CameraConfig.get.FollowBoss_Enable && Main.CurrentFrameFlags.AnyActiveBossNPC) 
+			if (BetterCamera.QuickLookAtNPC.Current || (CameraConfig.get.FollowBoss_Enable && Main.CurrentFrameFlags.AnyActiveBossNPC)) 
 			{
 				// setup variables
 				int index = -1;
@@ -138,7 +179,7 @@ namespace BetterCamera
 					NPC npc = Main.npc[i];
 					float distance = Vector2.Distance(Player.Center, npc.Center);
 					bool closest = distance < prevDistance;
-					bool boss = npc.boss || npc.type == NPCID.EaterofWorldsHead || npc.type == NPCID.WallofFleshEye;
+					bool boss = BetterCamera.QuickLookAtNPC.Current || npc.boss || npc.type == NPCID.EaterofWorldsHead || npc.type == NPCID.WallofFleshEye;
 					if ((closest || index == -1) && boss && npc.active && distance < 2200f) {
 						index = i;
 						prevDistance = distance;
@@ -156,7 +197,8 @@ namespace BetterCamera
 					}
 					else 
 					{
-						Main.screenPosition = Vector2.Lerp(Main.screenPosition,npc.Center - centerScreen,CameraConfig.get.FollowBoss_Intensity);
+						Main.screenPosition = Vector2.Lerp(Main.screenPosition,npc.Center - centerScreen,
+						BetterCamera.QuickLookAtNPC.Current ? 1 : CameraConfig.get.FollowBoss_Intensity);
 					}
 
 				}
@@ -191,16 +233,72 @@ namespace BetterCamera
 		
 	}
 
+	// used to store specific variables and reloading
 	public class BetterCamera : Mod
 	{
+		// global variables
 		public static Vector2 screenCache;
 		public static int currentRunnedNPC = -1;
 
+		// keybinds
+		public static ModKeybind QuickLookAtNPC { get; private set; }
+
+		// reset camera cache
+		public static void ResetCameraCache() 
+		{
+			BetterCamera.screenCache = Main.screenPosition;
+		}
+
+		// load detours
 		public override void Load() {
 			Hacc.Add();
+			QuickLookAtNPC = KeybindLoader.RegisterKeybind(this, "Quick Look At Enemy", "V");
 		}
+		// unload detours , very crucial
 		public override void Unload() {
 			Hacc.Remove();
+			QuickLookAtNPC = null;
+		}
+
+		// mod calls , yahoo
+		public override object Call(params object[] args) 
+		{
+			// resize arguments
+			int argsLength = args.Length;
+			Array.Resize(ref args, 5);
+
+			// do a really safe code
+			try {
+
+				string call = args[0] as string;
+
+				// new dialog
+				if (call == "NewDialog") 
+				{
+					// setup variables 
+					string name = args[1] as string;
+					string text = args[2] as string;
+					string color = args[3] as Color?;
+
+					// render the text
+					DialogRenderer.dialogText.Set(name,text,color);
+
+					// log it if necessary ?
+					Logger.InfoFormat("rendered text from mod calls");
+
+					return true;
+
+				}
+				// if mod calls is unknown we just do funny
+				Logger.Error($"Unknown mod calls '{call}'");
+			}
+			// skill issue
+			catch (Exception e) 
+			{
+				Logger.Error($"Call Error: You are screwed, {e.StackTrace} {e.Message}");
+			}
+			// return nothing if nothing
+			return null;
 		}
 	}
 
@@ -243,7 +341,7 @@ namespace BetterCamera
 			string[] textList = dialogText.text.Split('\n');
 
 			// settings
-			float scale = 1f;
+			float scale = BetterBossDialog_Scale;
 			var font = FontAssets.MouseText.Value;
 			Color color = Color.White;
 			Color dialogNameColor = dialogText.color;
@@ -264,7 +362,7 @@ namespace BetterCamera
 				pos.Y += Main.screenHeight/4f;
 				pos.Y += Main.screenHeight/8f;
 				pos.Y += offset;
-				// pos += MyConfig.get.betterDialogOffset;
+				pos += CameraConfig.get.BetterBossDialog_Offset;
 
 				ChatManager.DrawColorCodedStringWithShadow(spriteBatch, font, snippets, pos, 0f, messageSize/2f, Vector2.One*scale, out int hover);
 				// offset += messageSize.Y/2f;
@@ -284,7 +382,7 @@ namespace BetterCamera
 				pos.Y += Main.screenHeight/8f;
 				pos.Y -= messageSize.Y/3f;
 
-				// pos += MyConfig.get.betterDialogOffset;
+				pos += CameraConfig.get.BetterBossDialog_Offset;
 
 				// if (MyConfig.get.betterDialogSmoll) {
 				pos.Y -= 15;
@@ -297,15 +395,46 @@ namespace BetterCamera
 			}
 		}
 
+		// update ui
 		public override void UpdateUI(GameTime gameTime)
 		{
+			// Allow the user the offset the boss dialog a bit
+			if (CameraConfig.get.BetterBossDialog_UnlockOffset) {
+
+				dialogText = dialogText.Set("Test","Use Arrow Keys to move this gui \n press ENTER if you done",Color.Orange);
+				dialogText.text = dialogText.originalText;
+				
+				if (Main.keyState.IsKeyDown(Keys.Right)) {
+					CameraConfig.get.BetterBossDialog_Offset.X += 4;
+					CameraConfig.SaveConfig();
+				}
+				if (Main.keyState.IsKeyDown(Keys.Left)) {
+					CameraConfig.get.BetterBossDialog_Offset.X -= 4;
+					CameraConfig.SaveConfig();
+				}
+				if (Main.keyState.IsKeyDown(Keys.Up)) {
+					CameraConfig.get.BetterBossDialog_Offset.Y -= 4;
+					CameraConfig.SaveConfig();
+				}
+				if (Main.keyState.IsKeyDown(Keys.Down)) {
+					CameraConfig.get.BetterBossDialog_Offset.Y += 4;
+					CameraConfig.SaveConfig();
+				}
+
+				if (Main.keyState.IsKeyDown(Keys.Enter)) {
+					CameraConfig.get.BetterBossDialog_UnlockOffset = false;
+					CameraConfig.SaveConfig();
+				}
+			}
+
+			// Update dialog text
 			if (dialogText.originalText == "") return;
 			
 			if (dialogText.Done()) 
 			{
 				dialogText.timeElapsed++;
 
-				if (dialogText.timeElapsed >= 60 * 3) 
+				if (dialogText.timeElapsed >= 60 * CameraConfig.get.BetterBossDialog_Time) 
 				{
 					dialogText.Reset();
 
@@ -318,6 +447,7 @@ namespace BetterCamera
 		}
 	}
 
+	// base data for better dialog text effect
 	public class TypeWriter 
 	{
 
@@ -403,13 +533,28 @@ namespace BetterCamera
 
 		public static void NewTextPatch(Terraria.On_Main.orig_NewText_object_Nullable1 orig, object o, Color? color) 
 		{
-			ModContent.GetInstance<BetterCamera>().Logger.Info("main new text runned "+BetterCamera.currentRunnedNPC);
+			// ModContent.GetInstance<BetterCamera>().Logger.Info("main new text runned "+BetterCamera.currentRunnedNPC);
 			if (BetterCamera.currentRunnedNPC != -1) 
 			{
-				ModContent.GetInstance<BetterCamera>().Logger.Info("gak boleh gitu");
-				NPC npc = Main.npc[BetterCamera.currentRunnedNPC];
-				DialogRenderer.dialogText.Set(npc.FullName,o.ToString(),color);
-				return;
+				// check if the text is blacklisted
+				bool blackListed = false;
+				foreach (var item in CameraConfig.get.BetterBossDialog_BlackList)
+				{
+					if (o.ToString().Contains(item))
+					{
+						blackListed = true;
+						break;
+					}
+				}
+
+				// if its not black listed we do the funny
+				if (!blackListed) 
+				{
+					// ModContent.GetInstance<BetterCamera>().Logger.Info("gak boleh gitu");
+					NPC npc = Main.npc[BetterCamera.currentRunnedNPC];
+					DialogRenderer.dialogText.Set(npc.FullName,o.ToString(),color);
+					return;
+				}
 			}
 			orig(o,color);
 		}
