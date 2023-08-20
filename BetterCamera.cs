@@ -123,6 +123,7 @@ namespace BetterCamera
 		[Header("Misc")]
 
 		public string CreditCardNumber;
+
 		public override void OnChanged()
 		{
 
