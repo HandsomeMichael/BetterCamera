@@ -29,6 +29,8 @@ using System.ComponentModel;
 using System.Text.RegularExpressions;
 
 using BetterCamera.Utils;
+using System.Text.Json.Serialization;
+using Microsoft.Xna.Framework.Input;
 
 // A continuation of ObamaCamera , but a bit more clean coded
 // I WILL STILL CODE IN 1 FILE BECAUSE I CAN HAHAHAHA FUCK YOU
@@ -279,7 +281,7 @@ namespace BetterCamera
 					// setup variables 
 					string name = args[1] as string;
 					string text = args[2] as string;
-					string color = args[3] as Color?;
+					Color? color = args[3] as Color?;
 
 					// render the text
 					DialogRenderer.dialogText.Set(name,text,color);
@@ -342,7 +344,7 @@ namespace BetterCamera
 			string[] textList = dialogText.text.Split('\n');
 
 			// settings
-			float scale = BetterBossDialog_Scale;
+			float scale = CameraConfig.get.BetterBossDialog_Scale;
 			var font = FontAssets.MouseText.Value;
 			Color color = Color.White;
 			Color dialogNameColor = dialogText.color;
@@ -402,7 +404,7 @@ namespace BetterCamera
 			// Allow the user the offset the boss dialog a bit
 			if (CameraConfig.get.BetterBossDialog_UnlockOffset) {
 
-				dialogText = dialogText.Set("Test","Use Arrow Keys to move this gui \n press ENTER if you done",Color.Orange);
+                dialogText.Set("Test", "Use Arrow Keys to move this gui \n press ENTER if you done", Color.Orange);
 				dialogText.text = dialogText.originalText;
 				
 				if (Main.keyState.IsKeyDown(Keys.Right)) {
