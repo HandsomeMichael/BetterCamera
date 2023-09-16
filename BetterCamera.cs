@@ -44,14 +44,12 @@ namespace BetterCamera
 		public override ConfigScope Mode => ConfigScope.ClientSide;
 		public static CameraConfig get => ModContent.GetInstance<CameraConfig>();
 
-		// save the config , this requires reflection though.
-		public static void SaveConfig(){
-			typeof(ConfigManager).GetMethod("Save", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[1] { get });
-		}
+        // save the config , this requires reflection though.
+        public static void SaveConfig() => typeof(ConfigManager).GetMethod("Save", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[1] { get });
 
-		// Smooth Camera Settings
+        // Smooth Camera Settings
 
-		[Header("SmoothCamera")]
+        [Header("SmoothCamera")]
 
 		[DefaultValue(true)] 
 		public bool SmoothCamera_Enable; 
