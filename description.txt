@@ -23,6 +23,10 @@ Note : this mod is open source. you can contribute to this if you wanted to,the 
 
 [ Changelog ]
 
+v.0.9.1
+
+- added stuff that i mostly forgot about
+
 v.0.9
 - ported to 1.4.4.9 with minimal feature
 - pretty much revamped every code

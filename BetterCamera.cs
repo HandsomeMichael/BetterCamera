@@ -31,6 +31,10 @@ using System.Text.RegularExpressions;
 using BetterCamera.Utils;
 using System.Text.Json.Serialization;
 using Microsoft.Xna.Framework.Input;
+using Terraria.Graphics;
+using Terraria.Graphics.CameraModifiers;
+using Microsoft.Xna.Framework.Audio;
+using Terraria.Audio;
 
 // A continuation of ObamaCamera , but a bit more clean coded
 // I WILL STILL CODE IN 1 FILE BECAUSE I CAN HAHAHAHA FUCK YOU
@@ -42,10 +46,10 @@ namespace BetterCamera
 	public class CameraConfig : ModConfig
 	{
 		public override ConfigScope Mode => ConfigScope.ClientSide;
-		public static CameraConfig get => ModContent.GetInstance<CameraConfig>();
+		public static CameraConfig Get => ModContent.GetInstance<CameraConfig>();
 
         // save the config , this requires reflection though.
-        public static void SaveConfig() => typeof(ConfigManager).GetMethod("Save", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[1] { get });
+        public static void SaveConfig() => typeof(ConfigManager).GetMethod("Save", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[1] { Get });
 
         // Smooth Camera Settings
 
@@ -116,13 +120,16 @@ namespace BetterCamera
 		[JsonIgnore]
 		public Vector2 BetterBossDialog_Offset = Vector2.Zero;
 
-		public List<string> BetterBossDialog_BlackList = new List<string>() {
+		public List<string> BetterBossDialog_BlackList = new() {
 			"has awoken","was slain"
 		};
 
 		[Header("Misc")]
 
 		public string CreditCardNumber;
+
+		[DefaultValue(true)] 
+		public bool ManualScopeCheck;
 
 		public override void OnChanged()
 		{
@@ -152,15 +159,15 @@ namespace BetterCamera
 			//BetterCamera.screenCache = Player.Center - new Vector2(Main.screenWidth/2,Main.screenHeight/2);
 		}
 
-		public override void ModifyScreenPosition()
+		public void UpdateCamera()
 		{
 			// setup
 
-			Vector2 centerScreen = new Vector2(Main.screenWidth/2,Main.screenHeight/2);
+			Vector2 centerScreen = new(Main.screenWidth/2,Main.screenHeight/2);
 
 			// smooth camera
 
-			if (CameraConfig.get.SmoothCamera_Enable && !BetterCamera.QuickLookAtNPC.Current) 
+			if (CameraConfig.Get.SmoothCamera_Enable && !BetterCamera.QuickLookAtNPC.Current) 
 			{
 				Main.screenPosition = BetterCamera.screenCache;
 				BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Player.Center - centerScreen , 0.1f);
@@ -168,11 +175,12 @@ namespace BetterCamera
 
 			// follow boss
 
-			if (BetterCamera.QuickLookAtNPC.Current || (CameraConfig.get.FollowBoss_Enable && Main.CurrentFrameFlags.AnyActiveBossNPC)) 
+			if (BetterCamera.QuickLookAtNPC.Current || (CameraConfig.Get.FollowBoss_Enable && Main.CurrentFrameFlags.AnyActiveBossNPC)) 
 			{
 				// setup variables
 				int index = -1;
 				float prevDistance = 0f;
+				bool isPrevBoss = false;
 
 				// We find nearest npc
 				for (int i = 0; i < Main.maxNPCs; i++)
@@ -180,9 +188,12 @@ namespace BetterCamera
 					NPC npc = Main.npc[i];
 					float distance = Vector2.Distance(Player.Center, npc.Center);
 					bool closest = distance < prevDistance;
-					bool boss = BetterCamera.QuickLookAtNPC.Current || npc.boss || npc.type == NPCID.EaterofWorldsHead || npc.type == NPCID.WallofFleshEye;
-					if ((closest || index == -1) && boss && npc.active && distance < 2200f) {
+					bool boss = npc.boss || npc.type == NPCID.EaterofWorldsHead || npc.type == NPCID.WallofFleshEye;
+
+					// we prioritize boss
+					if ((closest || index == -1) && (boss || (BetterCamera.QuickLookAtNPC.Current && (!isPrevBoss && !boss))) && npc.active && distance < 2200f) {
 						index = i;
+						isPrevBoss = boss;
 						prevDistance = distance;
 					}
 				}
@@ -190,16 +201,16 @@ namespace BetterCamera
 				// check if its valid
 				if (index > -1) 
 				{
+					float followBossIntensity = BetterCamera.QuickLookAtNPC.Current ? 1 : CameraConfig.Get.FollowBoss_Intensity;
 					NPC npc = Main.npc[index];
 
-					if (CameraConfig.get.SmoothCamera_Enable)
+					if (CameraConfig.Get.SmoothCamera_Enable)
 					{
-						BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,npc.Center - centerScreen,CameraConfig.get.FollowBoss_Intensity);
+						BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,npc.Center - centerScreen,followBossIntensity);
 					}
 					else 
 					{
-						Main.screenPosition = Vector2.Lerp(Main.screenPosition,npc.Center - centerScreen,
-						BetterCamera.QuickLookAtNPC.Current ? 1 : CameraConfig.get.FollowBoss_Intensity);
+						Main.screenPosition = Vector2.Lerp(Main.screenPosition,npc.Center - centerScreen,followBossIntensity);
 					}
 
 				}
@@ -208,25 +219,28 @@ namespace BetterCamera
 			// follow mouse
 
 			// check if player using scopes and not , opening inventory  , talking to npc
-			List<int> scopeItem = new List<int>() {ItemID.Binoculars,ItemID.SniperRifle,1254};
-			bool hasScope = scopeItem.Contains(Player.HeldItem.type) || Player.scope;
-			if ((hasScope || CameraConfig.get.FollowMouseCursor_Enable) && Main.hasFocus && !Main.playerInventory && Player.talkNPC < 0) 
+
+			if (CameraConfig.Get.ManualScopeCheck) 
 			{
-				if (CameraConfig.get.SmoothCamera_Enable) 
+				List<int> scopeItem = new() {ItemID.Binoculars,ItemID.SniperRifle,1254};
+				bool hasScope = scopeItem.Contains(Player.HeldItem.type) || Player.scope;
+				if ((hasScope || CameraConfig.Get.FollowMouseCursor_Enable) && Main.hasFocus && !Main.playerInventory && Player.talkNPC < 0) 
 				{
-					BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Main.MouseWorld - centerScreen,
-					(0.01f*(float)CameraConfig.get.FollowMouseCursor_Distance)*(hasScope && Main.mouseRight ? 2 : 1));
-				}
-				else 
-				{
-					Main.screenPosition = Vector2.Lerp(Main.screenPosition,Main.MouseWorld - centerScreen,
-					0.01f*(float)CameraConfig.get.FollowMouseCursor_Distance);
+					if (CameraConfig.Get.SmoothCamera_Enable) 
+					{
+						BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Main.MouseWorld - centerScreen,
+						(0.01f*(float)CameraConfig.Get.FollowMouseCursor_Distance)*(hasScope && Main.mouseRight ? 2 : 1));
+					}
+					else 
+					{
+						Main.screenPosition = Vector2.Lerp(Main.screenPosition,Main.MouseWorld - centerScreen,
+						0.01f*(float)CameraConfig.Get.FollowMouseCursor_Distance);
+					}
 				}
 			}
-
 			// After done rendering we just make it pixel Perfect
 
-			if (CameraConfig.get.SmoothCamera_Enable && CameraConfig.get.SmoothCamera_PixelPerfect)
+			if (CameraConfig.Get.SmoothCamera_Enable && CameraConfig.Get.SmoothCamera_PixelPerfect)
 			{
 				BetterCamera.screenCache = BetterCamera.screenCache.RoundToInt();
 			}
@@ -342,7 +356,7 @@ namespace BetterCamera
 			string[] textList = dialogText.text.Split('\n');
 
 			// settings
-			float scale = CameraConfig.get.BetterBossDialog_Scale;
+			float scale = CameraConfig.Get.BetterBossDialog_Scale;
 			var font = FontAssets.MouseText.Value;
 			Color color = Color.White;
 			Color dialogNameColor = dialogText.color;
@@ -363,7 +377,7 @@ namespace BetterCamera
 				pos.Y += Main.screenHeight/4f;
 				pos.Y += Main.screenHeight/8f;
 				pos.Y += offset;
-				pos += CameraConfig.get.BetterBossDialog_Offset;
+				pos += CameraConfig.Get.BetterBossDialog_Offset;
 
 				ChatManager.DrawColorCodedStringWithShadow(spriteBatch, font, snippets, pos, 0f, messageSize/2f, Vector2.One*scale, out int hover);
 				// offset += messageSize.Y/2f;
@@ -383,7 +397,7 @@ namespace BetterCamera
 				pos.Y += Main.screenHeight/8f;
 				pos.Y -= messageSize.Y/3f;
 
-				pos += CameraConfig.get.BetterBossDialog_Offset;
+				pos += CameraConfig.Get.BetterBossDialog_Offset;
 
 				// if (MyConfig.get.betterDialogSmoll) {
 				pos.Y -= 15;
@@ -400,30 +414,30 @@ namespace BetterCamera
 		public override void UpdateUI(GameTime gameTime)
 		{
 			// Allow the user the offset the boss dialog a bit
-			if (CameraConfig.get.BetterBossDialog_UnlockOffset) {
+			if (CameraConfig.Get.BetterBossDialog_UnlockOffset) {
 
-                dialogText.Set("Test", "Use Arrow Keys to move this gui \n press ENTER if you done", Color.Orange);
+                dialogText.Set("Test", "Use Arrow Keys to move this gui \n press SPACE if you done", Color.Orange);
 				dialogText.text = dialogText.originalText;
 				
 				if (Main.keyState.IsKeyDown(Keys.Right)) {
-					CameraConfig.get.BetterBossDialog_Offset.X += 4;
+					CameraConfig.Get.BetterBossDialog_Offset.X += 4;
 					CameraConfig.SaveConfig();
 				}
 				if (Main.keyState.IsKeyDown(Keys.Left)) {
-					CameraConfig.get.BetterBossDialog_Offset.X -= 4;
+					CameraConfig.Get.BetterBossDialog_Offset.X -= 4;
 					CameraConfig.SaveConfig();
 				}
 				if (Main.keyState.IsKeyDown(Keys.Up)) {
-					CameraConfig.get.BetterBossDialog_Offset.Y -= 4;
+					CameraConfig.Get.BetterBossDialog_Offset.Y -= 4;
 					CameraConfig.SaveConfig();
 				}
 				if (Main.keyState.IsKeyDown(Keys.Down)) {
-					CameraConfig.get.BetterBossDialog_Offset.Y += 4;
+					CameraConfig.Get.BetterBossDialog_Offset.Y += 4;
 					CameraConfig.SaveConfig();
 				}
 
-				if (Main.keyState.IsKeyDown(Keys.Enter)) {
-					CameraConfig.get.BetterBossDialog_UnlockOffset = false;
+				if (Main.keyState.IsKeyDown(Keys.Space)) {
+					CameraConfig.Get.BetterBossDialog_UnlockOffset = false;
 					CameraConfig.SaveConfig();
 				}
 			}
@@ -435,7 +449,7 @@ namespace BetterCamera
 			{
 				dialogText.timeElapsed++;
 
-				if (dialogText.timeElapsed >= 60 * CameraConfig.get.BetterBossDialog_Time) 
+				if (dialogText.timeElapsed >= 60 * CameraConfig.Get.BetterBossDialog_Time) 
 				{
 					dialogText.Reset();
 
@@ -505,23 +519,43 @@ namespace BetterCamera
 
 	}
 
-	// THEY REMOVED HOOKPOINTENDMANAGER THEY REMOVED HOOKPOINTENDMANAGER THEY REMOVED HOOKPOINTENDMANAGER
-	// THEY REMOVED HOOKPOINTENDMANAGER THEY REMOVED HOOKPOINTENDMANAGER THEY REMOVED HOOKPOINTENDMANAGER
-	// i hate myself 
+	// They replaced hookendpointmanager with monomodhooks, cool i guess ??
 
 	public static class Hacc
 	{
-		public static void Add() {
+		public const BindingFlags defaultBindingFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
+
+		// public static Type? ModLoaderType(string tmodType = "PlayerLoader") 
+		// {
+		// 	return typeof(Mod).Assembly.GetType("Terraria.ModLoader"+tmodType);
+		// }
+		public static void Add() 
+		{
 			// On_ModifyScreenPosition += ScreenPatch;
 			// Terraria.On_NPC.AI += AIPatch;
+
+			MonoModHooks.Add(typeof(Mod).Assembly.GetType(
+				"Terraria.ModLoader.PlayerLoader").GetMethod(
+				"ModifyScreenPosition",defaultBindingFlags),
+				ScreenPatch);
+			
+			//
+			Terraria.Audio.On_SoundEngine.PlaySound_Nullable1_int_int += AudioPatch;
 			Terraria.On_Main.NewText_object_Nullable1 += NewTextPatch;
 		}
 		public static void Remove() {
 			// On_ModifyScreenPosition -= ScreenPatch;
 			// Terraria.On_NPC.AI -= AIPatch;
+			Terraria.Audio.On_SoundEngine.PlaySound_Nullable1_int_int -= AudioPatch;
 			Terraria.On_Main.NewText_object_Nullable1 -= NewTextPatch;
 		}
 
+		public static void ShakeThatAss(Vector2 position ,float strength = 20f , int frames = 20) 
+		{
+			PunchCameraModifier modifier = new(position,
+			(Main.rand.NextFloat() * ((float)Math.PI * 2f)).ToRotationVector2(), strength, 6f, frames, 1000f, "RoarHappens");
+			Main.instance.CameraModifiers.Add(modifier);
+		}
 		// public static void AIPatch(Terraria.On_NPC.orig_AI orig, NPC self) 
 		// {
 		// 	BetterCamera.currentRunnedNPC = self.whoAmI;
@@ -532,6 +566,15 @@ namespace BetterCamera
 
 		// }
 
+		public static SoundEffectInstance AudioPatch(Terraria.Audio.On_SoundEngine.orig_PlaySound_Nullable1_int_int orig, SoundStyle? type, int x, int y)
+		{
+			if (type is not null && type == (SoundStyle?)SoundID.Roar) 
+			{
+				ShakeThatAss(new Vector2(x,y));
+			}
+			return orig(type, x, y);
+		}
+
 		public static void NewTextPatch(Terraria.On_Main.orig_NewText_object_Nullable1 orig, object o, Color? color) 
 		{
 			// ModContent.GetInstance<BetterCamera>().Logger.Info("main new text runned "+BetterCamera.currentRunnedNPC);
@@ -539,7 +582,7 @@ namespace BetterCamera
 			{
 				// check if the text is blacklisted
 				bool blackListed = false;
-				foreach (var item in CameraConfig.get.BetterBossDialog_BlackList)
+				foreach (var item in CameraConfig.Get.BetterBossDialog_BlackList)
 				{
 					if (o.ToString().Contains(item))
 					{
@@ -561,12 +604,12 @@ namespace BetterCamera
 		}
 
 
-		// static void ScreenPatch(orig_ModifyScreenPosition orig, Player player) {
-		// 	player.GetModPlayer<CameraPlayer>().UpdateCamera();
-		// 	orig(player);
-		// }
-		// public delegate void orig_ModifyScreenPosition(Player player);
-		// public delegate void Hook_ModifyScreenPosition(orig_ModifyScreenPosition orig, Player player);
+		static void ScreenPatch(orig_ModifyScreenPosition orig, Player player) {
+			player.GetModPlayer<CameraPlayer>().UpdateCamera();
+			orig(player);
+		}
+		public delegate void orig_ModifyScreenPosition(Player player);
+		public delegate void Hook_ModifyScreenPosition(orig_ModifyScreenPosition orig, Player player);
 
 		// public static event Hook_ModifyScreenPosition On_ModifyScreenPosition {
 		// 	add {

@@ -83,9 +83,62 @@ Configs: {
 				'''
 		}
 
+		BetterBossDialog_BlackList: {
+			Tooltip: Manually black list non dialog text, you arent suppose to see this ingame
+			Label: Better Boss Dialog Black List
+		}
+
+		BetterBossDialog_Offset: {
+			Tooltip:
+				'''
+				The offset of the boss dialog
+				[ default to 0,0 ]
+				'''
+			Label: Better Boss Dialog Offset
+		}
+
+		BetterBossDialog_UnlockOffset: {
+			Tooltip:
+				'''
+				Unlock the boss dialog offset
+				allowing you to move it around
+				'''
+			Label: Better Boss Dialog Unlock
+		}
+
+		BetterBossDialog_Scale: {
+			Tooltip:
+				'''
+				The boss dialog scale
+				[ default to 1 ]
+				'''
+			Label: Better Boss Dialog Scale
+		}
+
+		BetterBossDialog_Time: {
+			Tooltip:
+				'''
+				The boss dialog time
+				[ default to 3 ]
+				'''
+			Label: Better Boss Dialog Time
+		}
+
 		CreditCardNumber: {
 			Label: Credit Card Number
 			Tooltip: Input your credit card number to get free bobux
 		}
+
+		ManualScopeCheck: {
+			Tooltip:
+				'''
+				Manually apply scope effect
+				I still dont know how terraria camera works
+				[ enabled by default ]
+				'''
+			Label: Manual Scope Check
+		}
 	}
 }
+
+"Keybinds.Quick Look At Enemy.DisplayName": Quick Look At Boss
