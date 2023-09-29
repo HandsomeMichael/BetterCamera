@@ -14,6 +14,8 @@ all features in this mod can be disabled and adjusted to your liking, if you wan
 - Adjustable Smooth Camera
 - Camera Follow Mouse ( Soldat / Terraria Overhaul Style )
 - Camera Follow Bosses ( Adjustable )
+- Better Binoculars
+- Screen Shakes !
 
 [i:184] Other Features
 
@@ -25,7 +27,10 @@ Note : this mod is open source. you can contribute to this if you wanted to,the 
 
 v.0.9.1
 
-- added stuff that i mostly forgot about
+- better binoculars ( its actually usefull now )
+- screen shakes
+- huge changes to code
+- NOW WORKS WITH ANYTHING
 
 v.0.9
 - ported to 1.4.4.9 with minimal feature

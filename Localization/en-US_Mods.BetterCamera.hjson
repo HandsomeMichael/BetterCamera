@@ -8,6 +8,7 @@ Configs: {
 			FollowBoss: Follow Boss
 			BetterBossDialog: Better Boss Dialog
 			Misc: Misc & Stuff
+			ExperimentalScreenShakes: Experimental Screen Shakes Header
 		}
 
 		SmoothCamera_Enable: {
@@ -24,6 +25,7 @@ Configs: {
 			Tooltip:
 				'''
 				Make the camera pixel perfect and less mixels
+				this might make the camera move a little bit weirder
 				[ enabled by default ]
 				'''
 		}
@@ -34,6 +36,16 @@ Configs: {
 				'''
 				The intensity of smooth camera
 				[default is 0.1]
+				'''
+		}
+
+		SmoothCamera_ResetIntensity: {
+			Label: Reset Intensity
+			Tooltip:
+				'''
+				Honestly i couldnt explain this one
+				Just dont touch this
+				[default is 2]
 				'''
 		}
 
@@ -69,8 +81,17 @@ Configs: {
 			Tooltip:
 				'''
 				The intensity of camera following boss
-				setting it to 1 will just lock the camera to boss
 				[ default is 0.1 ]
+				'''
+		}
+
+		FollowBoss_Range: {
+			Label: Boss Range
+			Tooltip:
+				'''
+				The range of camera following boss
+				using the hotkey multiply the range
+				[ default is 0.5 ]
 				'''
 		}
 
@@ -129,14 +150,55 @@ Configs: {
 			Tooltip: Input your credit card number to get free bobux
 		}
 
-		ManualScopeCheck: {
+		FollowBoss_Distance: {
+			Label: Distance
 			Tooltip:
 				'''
-				Manually apply scope effect
-				I still dont know how terraria camera works
-				[ enabled by default ]
+				The maximum distance of 
+				camera following boss
+				[ default to 2000 ]
 				'''
-			Label: Manual Scope Check
+		}
+
+		ScreenShake_OnRoar: {
+			Label: Shake On Roar
+			Tooltip:
+				'''
+				Shake when a boss roar
+				'''
+		}
+
+		ScreenShake_OnHit: {
+			Label: Shake On Hit Enemy
+			Tooltip:
+				'''
+				Shake when hitting an enemy
+				'''
+		}
+
+		ScreenShake_OnKill: {
+			Label: Shake On Kill Enemy
+			Tooltip:
+				'''
+				Huge Shake when killing an enemy
+				'''
+		}
+
+		ScreenShake_OnGotHit: {
+			Label: Shake On Getting Hit
+			Tooltip:
+				'''
+				Shake when getting hit
+				'''
+		}
+
+		ScreenShake_Intensity: {
+			Label: Screen Shake Intensity
+			Tooltip:
+				'''
+				The intensity of screen shake
+				[default is 20]
+				'''
 		}
 	}
 }

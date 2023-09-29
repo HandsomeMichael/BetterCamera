@@ -37,9 +37,9 @@ using Microsoft.Xna.Framework.Audio;
 using Terraria.Audio;
 
 // A continuation of ObamaCamera , but a bit more clean coded
-// I WILL STILL CODE IN 1 FILE BECAUSE I CAN HAHAHAHA FUCK YOU
-// although there is some chinese modder that just stole some of my mods and just post it on steamworkshop
-// it is quite sad :(
+// I WILL STILL CODE IN 1 FILE BECAUSE I CAN , HEHEHEHAW FUCK U HEHEHEHAW
+
+// i just watched the nun 2 , bro just fight the demon with a vilgigantinious amount of beer
 
 namespace BetterCamera
 {
@@ -68,6 +68,12 @@ namespace BetterCamera
 		[Slider] 
 		public float SmoothCamera_Intensity;
 
+		[Range(1f, 3f)]
+		[Increment(0.5f)]
+		[DefaultValue(2f)]
+		[Slider] 
+		public float SmoothCamera_ResetIntensity;
+
 		// Follow Cursor Settings
 
 		[Header("FollowMouseCursor")]
@@ -89,11 +95,46 @@ namespace BetterCamera
 		[DefaultValue(false)] 
 		public bool FollowBoss_Enable; 
 		
-		[Range(0.05f, 1f)]
+		[Range(0.1f, 1f)]
 		[Increment(0.05f)]
-		[DefaultValue(0.01f)]
+		[DefaultValue(0.1f)]
 		[Slider] 
 		public float FollowBoss_Intensity;
+
+		[Range(0.1f, 1f)]
+		[Increment(0.1f)]
+		[DefaultValue(0.5f)]
+		[Slider] 
+		public float FollowBoss_Range;
+
+		[Range(500, 4000)]
+		[Increment(100)]
+		[DefaultValue(2000)]
+		public int FollowBoss_Distance;
+
+		// Screen Shakes
+		// if you see this maybe try listening to this funny music , idk im bored
+		// https://www.youtube.com/watch?v=yModCU1OVHY
+
+		[Header("ExperimentalScreenShakes")]
+
+		[DefaultValue(false)] 
+		public bool ScreenShake_OnRoar;
+		
+		[DefaultValue(false)] 
+		public bool ScreenShake_OnHit;  
+
+		[DefaultValue(false)] 
+		public bool ScreenShake_OnKill;
+
+		[DefaultValue(false)] 
+		public bool ScreenShake_OnGotHit;
+
+		[Range(5f, 50f)]
+		[Increment(5f)]
+		[DefaultValue(30f)]
+		[Slider] 
+		public float ScreenShake_Intensity;
 		
 		// Dialog 
 
@@ -128,9 +169,6 @@ namespace BetterCamera
 
 		public string CreditCardNumber;
 
-		[DefaultValue(true)] 
-		public bool ManualScopeCheck;
-
 		public override void OnChanged()
 		{
 
@@ -152,30 +190,71 @@ namespace BetterCamera
 	// the base of the camera features
 	public class CameraPlayer : ModPlayer 
 	{
-		// a quick reset
+        // a quick reset
 		public override void OnEnterWorld() 
 		{
 			BetterCamera.ResetCameraCache();
 			//BetterCamera.screenCache = Player.Center - new Vector2(Main.screenWidth/2,Main.screenHeight/2);
 		}
 
-		public void UpdateCamera()
+		// screen shakes
+		public override void OnHitAnything(float x, float y, Entity victim)
+        {
+			if (Player.whoAmI != Main.myPlayer) return;
+			if (CameraConfig.Get.ScreenShake_OnHit) 
+			{
+				float strength = 1f;
+				if (CameraConfig.Get.ScreenShake_OnKill && victim is NPC target) {
+					if (target.life <= 0) {
+						strength = 3f;
+					}	
+				}
+            	Hacc.ShakeThatAss(new Vector2(x,y),strength);
+			}
+        }
+        public override void OnHurt(Player.HurtInfo info)
+        {
+            if (CameraConfig.Get.ScreenShake_OnGotHit) 
+			{
+            	Hacc.ShakeThatAss(Player.Center,5f);
+			}
+        }
+
+        
+
+		public static void UpdateCamera(Player Player)
 		{
+			// ModContent.GetInstance<BetterCamera>().Logger.Info("Top singko capybara");
+
 			// setup
 
 			Vector2 centerScreen = new(Main.screenWidth/2,Main.screenHeight/2);
 
 			// smooth camera
+			// honestly i have no idea what im doing , but it works
 
-			if (CameraConfig.Get.SmoothCamera_Enable && !BetterCamera.QuickLookAtNPC.Current) 
+			if (CameraConfig.Get.SmoothCamera_Enable) 
 			{
-				Main.screenPosition = BetterCamera.screenCache;
-				BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Player.Center - centerScreen , 0.1f);
+				// smoothen out
+				Vector2 smoothValue = Vector2.Lerp(BetterCamera.screenCache,Main.screenPosition,
+				CameraConfig.Get.SmoothCamera_Intensity*CameraConfig.Get.SmoothCamera_ResetIntensity);
+
+				// snap the pixels
+				if (CameraConfig.Get.SmoothCamera_PixelPerfect) 
+				smoothValue = smoothValue.RoundToInt();
+
+				// apply value
+				Main.screenPosition = smoothValue;
+
+				if (!BetterCamera.QuickLookAtNPC.Current)				
+				BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Player.Center - centerScreen ,
+				CameraConfig.Get.SmoothCamera_Intensity);
 			}
 
 			// follow boss
 
-			if (BetterCamera.QuickLookAtNPC.Current || (CameraConfig.Get.FollowBoss_Enable && Main.CurrentFrameFlags.AnyActiveBossNPC)) 
+			if (BetterCamera.QuickLookAtNPC.Current || 
+			(CameraConfig.Get.FollowBoss_Enable && Main.CurrentFrameFlags.AnyActiveBossNPC)) 
 			{
 				// setup variables
 				int index = -1;
@@ -189,9 +268,10 @@ namespace BetterCamera
 					float distance = Vector2.Distance(Player.Center, npc.Center);
 					bool closest = distance < prevDistance;
 					bool boss = npc.boss || npc.type == NPCID.EaterofWorldsHead || npc.type == NPCID.WallofFleshEye;
+					bool inRange = distance < CameraConfig.Get.FollowBoss_Distance;
 
 					// we prioritize boss
-					if ((closest || index == -1) && (boss || (BetterCamera.QuickLookAtNPC.Current && (!isPrevBoss && !boss))) && npc.active && distance < 2200f) {
+					if (inRange && (closest || index == -1) && (boss || (BetterCamera.QuickLookAtNPC.Current && !isPrevBoss && !boss)) && npc.active && distance < 2200f) {
 						index = i;
 						isPrevBoss = boss;
 						prevDistance = distance;
@@ -201,12 +281,16 @@ namespace BetterCamera
 				// check if its valid
 				if (index > -1) 
 				{
-					float followBossIntensity = BetterCamera.QuickLookAtNPC.Current ? 1 : CameraConfig.Get.FollowBoss_Intensity;
+					float followBossIntensity = CameraConfig.Get.FollowBoss_Intensity;
 					NPC npc = Main.npc[index];
+
+					var pos = Vector2.Lerp(Player.Center - centerScreen,npc.Center - centerScreen ,
+					CameraConfig.Get.FollowBoss_Range * (BetterCamera.QuickLookAtNPC.Current ? 2f : 1f));
 
 					if (CameraConfig.Get.SmoothCamera_Enable)
 					{
-						BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,npc.Center - centerScreen,followBossIntensity);
+						BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,
+						pos,followBossIntensity);
 					}
 					else 
 					{
@@ -216,33 +300,19 @@ namespace BetterCamera
 				}
 			}
 
-			// follow mouse
-
-			// check if player using scopes and not , opening inventory  , talking to npc
-
-			if (CameraConfig.Get.ManualScopeCheck) 
+			// Follow Cursor
+			if (CameraConfig.Get.FollowMouseCursor_Enable && Main.hasFocus && !Main.playerInventory && Player.talkNPC < 0) 
 			{
-				List<int> scopeItem = new() {ItemID.Binoculars,ItemID.SniperRifle,1254};
-				bool hasScope = scopeItem.Contains(Player.HeldItem.type) || Player.scope;
-				if ((hasScope || CameraConfig.Get.FollowMouseCursor_Enable) && Main.hasFocus && !Main.playerInventory && Player.talkNPC < 0) 
+				if (CameraConfig.Get.SmoothCamera_Enable) 
 				{
-					if (CameraConfig.Get.SmoothCamera_Enable) 
-					{
-						BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Main.MouseWorld - centerScreen,
-						(0.01f*(float)CameraConfig.Get.FollowMouseCursor_Distance)*(hasScope && Main.mouseRight ? 2 : 1));
-					}
-					else 
-					{
-						Main.screenPosition = Vector2.Lerp(Main.screenPosition,Main.MouseWorld - centerScreen,
-						0.01f*(float)CameraConfig.Get.FollowMouseCursor_Distance);
-					}
+					BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Main.MouseWorld - centerScreen,
+					0.01f*(float)CameraConfig.Get.FollowMouseCursor_Distance);
 				}
-			}
-			// After done rendering we just make it pixel Perfect
-
-			if (CameraConfig.Get.SmoothCamera_Enable && CameraConfig.Get.SmoothCamera_PixelPerfect)
-			{
-				BetterCamera.screenCache = BetterCamera.screenCache.RoundToInt();
+				else 
+				{
+					Main.screenPosition = Vector2.Lerp(Main.screenPosition,Main.MouseWorld - centerScreen,
+					0.01f*(float)CameraConfig.Get.FollowMouseCursor_Distance);
+				}
 			}
 		}
 		
@@ -261,7 +331,7 @@ namespace BetterCamera
 		// reset camera cache
 		public static void ResetCameraCache() 
 		{
-			BetterCamera.screenCache = Main.screenPosition;
+            screenCache = Main.screenPosition;
 		}
 
 		// load detours
@@ -288,6 +358,23 @@ namespace BetterCamera
 				string call = args[0] as string;
 
 				// new dialog
+				if (call == "NewDialog") 
+				{
+					// setup variables 
+					string name = args[1] as string;
+					string text = args[2] as string;
+					Color? color = args[3] as Color?;
+
+					// render the text
+					DialogRenderer.dialogText.Set(name,text,color);
+
+					// log it if necessary ?
+					Logger.InfoFormat("rendered text from mod calls");
+
+					return true;
+
+				}
+				// else
 				if (call == "NewDialog") 
 				{
 					// setup variables 
@@ -338,7 +425,7 @@ namespace BetterCamera
 
 		public override void OnModLoad()
 		{
-			dialogText = new TypeWriter();
+			dialogText = new TypeWriter("");
 		}
 
 		public override void OnModUnload()
@@ -349,6 +436,7 @@ namespace BetterCamera
 		public override void PostDrawInterface(SpriteBatch spriteBatch) 
 		{
 			// dont draw if there is nothing bruh
+			// WHY THE FUCK IS THIS STILL DRAWING LIKE WHAT
 			if (dialogText is null) return;
 			if (dialogText.text == "") return;
 
@@ -469,10 +557,14 @@ namespace BetterCamera
 		// data
 		public Color color;
 		public string name;
-		public string originalText;
-		public string text;
+		public string originalText = "";
+		public string text = "";
 		public int index;
 		public int timeElapsed;
+
+		public TypeWriter(string text) {
+			this.text = text;
+		}
 
 		public bool Done() 
 		{
@@ -525,35 +617,56 @@ namespace BetterCamera
 	{
 		public const BindingFlags defaultBindingFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
 
-		// public static Type? ModLoaderType(string tmodType = "PlayerLoader") 
-		// {
-		// 	return typeof(Mod).Assembly.GetType("Terraria.ModLoader"+tmodType);
-		// }
 		public static void Add() 
 		{
+			// There is a bunch of option to modify this , but i choose how overhaul did it
+
 			// On_ModifyScreenPosition += ScreenPatch;
 			// Terraria.On_NPC.AI += AIPatch;
 
-			MonoModHooks.Add(typeof(Mod).Assembly.GetType(
-				"Terraria.ModLoader.PlayerLoader").GetMethod(
-				"ModifyScreenPosition",defaultBindingFlags),
-				ScreenPatch);
-			
-			//
-			Terraria.Audio.On_SoundEngine.PlaySound_Nullable1_int_int += AudioPatch;
+			// MonoModHooks.Add(typeof(Mod).Assembly.GetType(
+			// 	"Terraria.ModLoader.PlayerLoader").GetMethod(
+			// 	"ModifyScreenPosition",defaultBindingFlags),
+			// 	ScreenPatch);
+
+			Terraria.On_Main.DoDraw_UpdateCameraPosition += ScreenPatch;
+			Terraria.Audio.On_SoundEngine.PlaySound_int_int_int_int_float_float += AudioPatch;
 			Terraria.On_Main.NewText_object_Nullable1 += NewTextPatch;
 		}
-		public static void Remove() {
+
+        public static void Remove() {
 			// On_ModifyScreenPosition -= ScreenPatch;
 			// Terraria.On_NPC.AI -= AIPatch;
-			Terraria.Audio.On_SoundEngine.PlaySound_Nullable1_int_int -= AudioPatch;
+			Terraria.On_Main.DoDraw_UpdateCameraPosition -= ScreenPatch;
+			Terraria.Audio.On_SoundEngine.PlaySound_int_int_int_int_float_float -= AudioPatch;
 			Terraria.On_Main.NewText_object_Nullable1 -= NewTextPatch;
 		}
+        private static SoundEffectInstance AudioPatch(On_SoundEngine.orig_PlaySound_int_int_int_int_float_float orig,
+		 int type, int x, int y, int Style, float volumeScale, float pitchOffset)
+        {
+			if (CameraConfig.Get.ScreenShake_OnRoar) 
+			{
+				if (type == 36) 
+				{
+					ShakeThatAss(new Vector2(x,y),volumeScale * 6f);
+				}
+			}
+            return orig(type,x,y,Style,volumeScale,pitchOffset);
+        }
 
-		public static void ShakeThatAss(Vector2 position ,float strength = 20f , int frames = 20) 
+        private static void ScreenPatch(On_Main.orig_DoDraw_UpdateCameraPosition orig)
+        {
+			orig();
+			if (!Main.gameMenu) 
+			{
+				CameraPlayer.UpdateCamera(Main.LocalPlayer);
+			}
+        }
+
+		public static void ShakeThatAss(Vector2 position ,float strength = 1f, int frames = 20) 
 		{
 			PunchCameraModifier modifier = new(position,
-			(Main.rand.NextFloat() * ((float)Math.PI * 2f)).ToRotationVector2(), strength, 6f, frames, 1000f, "RoarHappens");
+			(Main.rand.NextFloat() * ((float)Math.PI * 2f)).ToRotationVector2(), strength * CameraConfig.Get.ScreenShake_Intensity, 6f, frames, 1000f, "RoarHappens");
 			Main.instance.CameraModifiers.Add(modifier);
 		}
 		// public static void AIPatch(Terraria.On_NPC.orig_AI orig, NPC self) 
@@ -565,15 +678,6 @@ namespace BetterCamera
 		// 	ModContent.GetInstance<BetterCamera>().Logger.Info("ai stopped "+self.whoAmI);
 
 		// }
-
-		public static SoundEffectInstance AudioPatch(Terraria.Audio.On_SoundEngine.orig_PlaySound_Nullable1_int_int orig, SoundStyle? type, int x, int y)
-		{
-			if (type is not null && type == (SoundStyle?)SoundID.Roar) 
-			{
-				ShakeThatAss(new Vector2(x,y));
-			}
-			return orig(type, x, y);
-		}
 
 		public static void NewTextPatch(Terraria.On_Main.orig_NewText_object_Nullable1 orig, object o, Color? color) 
 		{
@@ -603,22 +707,7 @@ namespace BetterCamera
 			orig(o,color);
 		}
 
-
-		static void ScreenPatch(orig_ModifyScreenPosition orig, Player player) {
-			player.GetModPlayer<CameraPlayer>().UpdateCamera();
-			orig(player);
-		}
-		public delegate void orig_ModifyScreenPosition(Player player);
-		public delegate void Hook_ModifyScreenPosition(orig_ModifyScreenPosition orig, Player player);
-
-		// public static event Hook_ModifyScreenPosition On_ModifyScreenPosition {
-		// 	add {
-		// 		HookEndpointManager.Add<Hook_ModifyScreenPosition>(typeof(Mod).Assembly.GetType("Terraria.ModLoader.PlayerLoader").GetMethod("ModifyScreenPosition", BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic), value);
-		// 	}
-		// 	remove {
-		// 		HookEndpointManager.Remove<Hook_ModifyScreenPosition>(typeof(Mod).Assembly.GetType("Terraria.ModLoader.PlayerLoader").GetMethod("ModifyScreenPosition", BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic), value);
-		// 	}
-		// }
-
 	}
 }
+
+// if i become popular i should delete all of my browser history

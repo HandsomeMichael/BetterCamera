@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "hTvWPZckp/6SGiTIpSef7UWLonfPYcEyyVc4Je3b+MDr22hNkzi3gcC9vV4k98CwDUjZs4g2/ccSjRIPoHeBTg==",
+  "success": true,
+  "projectFilePath": "c:\\Users\\gibpr\\OneDrive\\Documents\\My Games\\Terraria\\tModLoader\\ModSources\\BetterCamera\\BetterCamera.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\gibpr\\.nuget\\packages\\tmodloader.codeassist\\0.1.5\\tmodloader.codeassist.0.1.5.nupkg.sha512"
+  ],
+  "logs": []
+}
