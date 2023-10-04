@@ -8,7 +8,7 @@ Configs: {
 			FollowBoss: Follow Boss
 			BetterBossDialog: Better Boss Dialog
 			Misc: Misc & Stuff
-			ExperimentalScreenShakes: Experimental Screen Shakes Header
+			ExperimentalScreenShakes: Experimental Screen Shakes
 		}
 
 		SmoothCamera_Enable: {
@@ -109,6 +109,15 @@ Configs: {
 			Label: Better Boss Dialog Black List
 		}
 
+		BetterBossDialog_UseGlobalNPC: {
+			Label: Better Boss Dialog Use GlobalNPC
+			Tooltip:
+				'''
+				For technical stuff , just ignore it
+				[default is false]
+				'''
+		}
+
 		BetterBossDialog_Offset: {
 			Tooltip:
 				'''
@@ -162,34 +171,22 @@ Configs: {
 
 		ScreenShake_OnRoar: {
 			Label: Shake On Roar
-			Tooltip:
-				'''
-				Shake when a boss roar
-				'''
+			Tooltip: Shake when a boss roar
 		}
 
 		ScreenShake_OnHit: {
 			Label: Shake On Hit Enemy
-			Tooltip:
-				'''
-				Shake when hitting an enemy
-				'''
+			Tooltip: Shake when hitting an enemy
 		}
 
 		ScreenShake_OnKill: {
 			Label: Shake On Kill Enemy
-			Tooltip:
-				'''
-				Huge Shake when killing an enemy
-				'''
+			Tooltip: Huge Shake when killing an enemy
 		}
 
 		ScreenShake_OnGotHit: {
 			Label: Shake On Getting Hit
-			Tooltip:
-				'''
-				Shake when getting hit
-				'''
+			Tooltip: Shake when getting hit
 		}
 
 		ScreenShake_Intensity: {
@@ -198,6 +195,35 @@ Configs: {
 				'''
 				The intensity of screen shake
 				[default is 20]
+				'''
+		}
+
+		BetterBinoculars: {
+			Label: Better Binoculars
+			Tooltip:
+				'''
+				Enhanches the binoculars experience [i:1299]
+				[default is true]
+				'''
+		}
+
+		SpectatePlayers: {
+			Label: Spectate Players
+			Tooltip:
+				'''
+				[c/FFFF00:VERY EXPERIMENTAL] , may or may not corrupt your player
+				idk why but it just broke my characters
+				[default is FALSE]
+				'''
+		}
+
+		BetterBomb: {
+			Label: Better Bomb
+			Tooltip:
+				'''
+				Makes explosive has a timer
+				and also better visualisation
+				[default is FALSE]
 				'''
 		}
 	}

@@ -15,12 +15,6 @@ namespace BetterCamera.Utils
 	public static class RighteousBryanUtils 
 	{
 		/// <summary>
-		/// Get direction to a position
-		/// </summary>
-		public static Vector2 DirectionTo(this Vector2 From,Vector2 Destination){
-			return Vector2.Normalize(Destination - From);
-		}
-		/// <summary>
 		/// Get Direction from a position
 		/// </summary>
 		public static Vector2 DirectionFrom(this Vector2 From,Vector2 Source){

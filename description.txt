@@ -25,6 +25,10 @@ Note : this mod is open source. you can contribute to this if you wanted to,the 
 
 [ Changelog ]
 
+v.0.9.2
+
+- experimental spectate
+
 v.0.9.1
 
 - better binoculars ( its actually usefull now )

@@ -5,33 +5,34 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
 
 // for drawing
-using Terraria.UI;
+// using Terraria.UI;
 using Terraria.UI.Chat;
-using Terraria.DataStructures;
-using Terraria.GameInput;
-using Terraria.ModLoader.IO;
-using Terraria.Localization;
-using Terraria.Utilities;
+// using Terraria.DataStructures;
+// using Terraria.GameInput;
+// using Terraria.ModLoader.IO;
+// using Terraria.Localization;
+// using Terraria.Utilities;
 using Terraria.GameContent;
 
 // for vectors and other miscrosoft stuff
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-// detouring
-using MonoMod.RuntimeDetour.HookGen;
+
+// detouring unused
+// using MonoMod.RuntimeDetour.HookGen;
 
 // reflection , list , and also config component
 using System;
-using System.IO;
+// using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text.RegularExpressions;
+// using System.Text.RegularExpressions;
 
 using BetterCamera.Utils;
 using System.Text.Json.Serialization;
 using Microsoft.Xna.Framework.Input;
-using Terraria.Graphics;
+// using Terraria.Graphics;
 using Terraria.Graphics.CameraModifiers;
 using Microsoft.Xna.Framework.Audio;
 using Terraria.Audio;
@@ -43,6 +44,7 @@ using Terraria.Audio;
 
 namespace BetterCamera
 {
+	
 	public class CameraConfig : ModConfig
 	{
 		public override ConfigScope Mode => ConfigScope.ClientSide;
@@ -143,6 +145,11 @@ namespace BetterCamera
 		[DefaultValue(false)] 
 		public bool BetterBossDialog_Enable;
 
+		[DefaultValue(true)]
+		[ReloadRequired]
+
+		public bool BetterBossDialog_UseGlobalNPC;
+
 		[Range(0.5f, 5f)]
 		[Increment(0.5f)]
 		[DefaultValue(3f)]
@@ -168,6 +175,16 @@ namespace BetterCamera
 		[Header("Misc")]
 
 		public string CreditCardNumber;
+
+		[DefaultValue(true)] 
+		public bool BetterBinoculars;
+
+		[DefaultValue(false)]
+		[ReloadRequired] 
+		public bool BetterBomb;
+
+		[DefaultValue(false)] 
+		public bool SpectatePlayers;
 
 		public override void OnChanged()
 		{
@@ -212,6 +229,7 @@ namespace BetterCamera
             	Hacc.ShakeThatAss(new Vector2(x,y),strength);
 			}
         }
+
         public override void OnHurt(Player.HurtInfo info)
         {
             if (CameraConfig.Get.ScreenShake_OnGotHit) 
@@ -219,16 +237,20 @@ namespace BetterCamera
             	Hacc.ShakeThatAss(Player.Center,5f);
 			}
         }
-
-        
+		
 
 		public static void UpdateCamera(Player Player)
 		{
+			if (BetterCamera.DisableThisShit) return;
+			
 			// ModContent.GetInstance<BetterCamera>().Logger.Info("Top singko capybara");
 
 			// setup
 
 			Vector2 centerScreen = new(Main.screenWidth/2,Main.screenHeight/2);
+
+			bool useBinoculars = CameraConfig.Get.BetterBinoculars && Player.HeldItem.type == ItemID.Binoculars;
+			bool centerCameraToPlayer = !BetterCamera.QuickLookAtNPC.Current && !useBinoculars && !Player.dead;
 
 			// smooth camera
 			// honestly i have no idea what im doing , but it works
@@ -246,9 +268,66 @@ namespace BetterCamera
 				// apply value
 				Main.screenPosition = smoothValue;
 
-				if (!BetterCamera.QuickLookAtNPC.Current)				
+				// center the camera to player
+				if (centerCameraToPlayer)
 				BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Player.Center - centerScreen ,
 				CameraConfig.Get.SmoothCamera_Intensity);
+			}
+
+			// spectate
+			// honestly i cant test wether this worked or not also this may or may not corrupted my player
+			if (CameraConfig.Get.SpectatePlayers && Player.dead) 
+			{
+				if (Main.mouseLeftRelease) BetterCamera.spectatedPlayer--;
+				if (Main.mouseRightRelease) BetterCamera.spectatedPlayer++;
+
+				if (BetterCamera.spectatedPlayer <= -1) 
+				{
+					for (int i = 255; i < 0; i--)
+					{
+						if (!Main.player[i].dead) 
+						{
+							BetterCamera.spectatedPlayer = i;
+						}
+					}
+				}
+
+				if (BetterCamera.spectatedPlayer > 255) 
+				{
+					for (int i = 0; i < Main.maxPlayers; i++)
+					{
+						if (!Main.player[i].dead) 
+						{
+							BetterCamera.spectatedPlayer = i;
+						}
+					}
+				}
+
+				if (BetterCamera.spectatedPlayer >= 0 && BetterCamera.spectatedPlayer <= 255) {
+					if (Main.player[BetterCamera.spectatedPlayer].dead) 
+					{
+						for (int i = 0; i < Main.maxPlayers; i++)
+						{
+							if (!Main.player[i].dead) 
+							{
+								BetterCamera.spectatedPlayer = i;
+							}
+						}
+
+					}
+				}
+
+			}
+
+			// better binoculars
+			if (useBinoculars) {
+				if (Main.mouseLeft) 
+				{
+					BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Main.MouseWorld - centerScreen,0.05f);
+				}
+				else if (Main.mouseRight) {
+					BetterCamera.screenCache = Vector2.Lerp(BetterCamera.screenCache,Player.Center - centerScreen,0.05f);
+				}
 			}
 
 			// follow boss
@@ -324,6 +403,8 @@ namespace BetterCamera
 		// global variables
 		public static Vector2 screenCache;
 		public static int currentRunnedNPC = -1;
+		public static int spectatedPlayer = 0;
+		public static bool DisableThisShit = false;
 
 		// keybinds
 		public static ModKeybind QuickLookAtNPC { get; private set; }
@@ -339,6 +420,7 @@ namespace BetterCamera
 			Hacc.Add();
 			QuickLookAtNPC = KeybindLoader.RegisterKeybind(this, "Quick Look At Enemy", "V");
 		}
+
 		// unload detours , very crucial
 		public override void Unload() {
 			Hacc.Remove();
@@ -360,6 +442,11 @@ namespace BetterCamera
 				// new dialog
 				if (call == "NewDialog") 
 				{
+					if (argsLength <= 4) 
+					{
+						Logger.InfoFormat("NewDialog mod calls has less arguments.");	
+						return false;
+					}
 					// setup variables 
 					string name = args[1] as string;
 					string text = args[2] as string;
@@ -374,20 +461,12 @@ namespace BetterCamera
 					return true;
 
 				}
-				// else
-				if (call == "NewDialog") 
+				// disable the mod
+				else if (call == "DisableThisShit") 
 				{
-					// setup variables 
-					string name = args[1] as string;
-					string text = args[2] as string;
-					Color? color = args[3] as Color?;
-
-					// render the text
-					DialogRenderer.dialogText.Set(name,text,color);
-
-					// log it if necessary ?
-					Logger.InfoFormat("rendered text from mod calls");
-
+					string text = args[1] as string;
+					Main.NewText("BetterCamera mod disabled for good , next time dont boot bettercamera mod with "+text);
+					DisableThisShit = true;
 					return true;
 
 				}
@@ -404,8 +483,53 @@ namespace BetterCamera
 		}
 	}
 
+	public class ModifyProjectileVisual : GlobalProjectile 
+	{
+		// load if needed
+		public override bool IsLoadingEnabled(Mod mod) => CameraConfig.Get.BetterBomb;
+
+		// seems like this hook initialized once , what a big poo
+        public override bool AppliesToEntity(Projectile entity, bool lateInstantiation)
+        {
+            return entity.aiStyle == ProjAIStyleID.Explosive;
+        }
+
+        public override bool PreDraw(Projectile projectile, ref Color lightColor)
+        {
+			projectile.scale = 1f + (0.5f - (Math.Clamp(projectile.timeLeft,0,180) / 360f));
+            return base.PreDraw(projectile, ref lightColor);
+        }
+        public override Color? GetAlpha(Projectile projectile, Color lightColor)
+        {
+			int tick = projectile.timeLeft % 30;
+			if (tick == 0 || tick == 1 || tick == 3) {
+				return Color.Red;
+			}
+            return base.GetAlpha(projectile, lightColor);
+        }
+        public override void PostDraw(Projectile projectile, Color lightColor)
+        {
+			if (projectile.timeLeft > 60 * 60) return;
+			var distance = Main.MouseWorld.Distance(projectile.Center);
+			if (distance < 150f) 
+			{
+				ChatManager.DrawColorCodedString(Main.spriteBatch, 
+				FontAssets.MouseText.Value,
+				$"{projectile.timeLeft/60}s",
+				projectile.Center - Main.screenPosition, Color.White * (1f- (distance / 150f)),
+				0f, Vector2.One, Vector2.One);
+			}
+        }    
+	}
+
+	// Check runned npc ( optional )
 	public class RunnedNPC : GlobalNPC 
 	{
+        public override bool IsLoadingEnabled(Mod mod)
+        {
+            return CameraConfig.Get.BetterBossDialog_UseGlobalNPC;
+        }
+        
 		public override bool PreAI(NPC npc)
 		{
 			BetterCamera.currentRunnedNPC = npc.whoAmI;
@@ -421,6 +545,7 @@ namespace BetterCamera
 	// just used for drawing dialogs
 	public class DialogRenderer : ModSystem 
 	{
+        
 		public static TypeWriter dialogText;
 
 		public override void OnModLoad()
@@ -435,8 +560,19 @@ namespace BetterCamera
 
 		public override void PostDrawInterface(SpriteBatch spriteBatch) 
 		{
+			// do better binoculars
+			var font = FontAssets.MouseText.Value;
+			if (CameraConfig.Get.BetterBinoculars && Main.LocalPlayer.HeldItem.type == ItemID.Binoculars) 
+			{
+				TextSnippet[] snippets = ChatManager.ParseMessage("Click to move", Color.White).ToArray();
+				Vector2 messageSize = ChatManager.GetStringSize(font, snippets, Vector2.One);
+				Vector2 pos = Main.LocalPlayer.Center - Main.screenPosition + new Vector2(0,
+				40 + (float)(Math.Sin(Main.GameUpdateCount / 45f)*8.0f));
+				ChatManager.DrawColorCodedStringWithShadow(spriteBatch, font, snippets, pos, 
+				0f, messageSize, Vector2.One, out int hover);
+			}
+
 			// dont draw if there is nothing bruh
-			// WHY THE FUCK IS THIS STILL DRAWING LIKE WHAT
 			if (dialogText is null) return;
 			if (dialogText.text == "") return;
 
@@ -445,7 +581,6 @@ namespace BetterCamera
 
 			// settings
 			float scale = CameraConfig.Get.BetterBossDialog_Scale;
-			var font = FontAssets.MouseText.Value;
 			Color color = Color.White;
 			Color dialogNameColor = dialogText.color;
 			float alpha = 1f;
@@ -504,9 +639,11 @@ namespace BetterCamera
 			// Allow the user the offset the boss dialog a bit
 			if (CameraConfig.Get.BetterBossDialog_UnlockOffset) {
 
+				// tell the player to actually do
                 dialogText.Set("Test", "Use Arrow Keys to move this gui \n press SPACE if you done", Color.Orange);
 				dialogText.text = dialogText.originalText;
-				
+
+				// Move the dialog
 				if (Main.keyState.IsKeyDown(Keys.Right)) {
 					CameraConfig.Get.BetterBossDialog_Offset.X += 4;
 					CameraConfig.SaveConfig();
@@ -523,7 +660,6 @@ namespace BetterCamera
 					CameraConfig.Get.BetterBossDialog_Offset.Y += 4;
 					CameraConfig.SaveConfig();
 				}
-
 				if (Main.keyState.IsKeyDown(Keys.Space)) {
 					CameraConfig.Get.BetterBossDialog_UnlockOffset = false;
 					CameraConfig.SaveConfig();
@@ -536,12 +672,7 @@ namespace BetterCamera
 			if (dialogText.Done()) 
 			{
 				dialogText.timeElapsed++;
-
-				if (dialogText.timeElapsed >= 60 * CameraConfig.Get.BetterBossDialog_Time) 
-				{
-					dialogText.Reset();
-
-				}
+				if (dialogText.timeElapsed >= 60 * CameraConfig.Get.BetterBossDialog_Time) dialogText.Reset();
 			}
 			else 
 			{
@@ -599,7 +730,7 @@ namespace BetterCamera
 				InnerUpdate();
 			}
 		}
-
+ 
 		public void InnerUpdate()
 		{
 			if (index < originalText.Length)
@@ -610,6 +741,24 @@ namespace BetterCamera
 		}
 
 	}
+
+	// Provides few info about music
+	// Perhaps it is time to remove music and biome info because gabe already made a better one
+	// public class MusicInfo 
+	// {
+	// 	public string name;
+	// 	public string composer;
+	// 	public int musicId;
+	// 	public int musicBoxId;
+
+	// 	public MusicInfo(string name = "",string composer = "", int musicId = 0 , int musicBoxId = 0)
+	// 	{
+	// 		this.name = name;
+	// 		this.composer = composer;
+	// 		this.musicId = musicId;
+	// 		this.musicBoxId = musicBoxId;
+	// 	}
+	// }
 
 	// They replaced hookendpointmanager with monomodhooks, cool i guess ??
 
@@ -629,6 +778,13 @@ namespace BetterCamera
 			// 	"ModifyScreenPosition",defaultBindingFlags),
 			// 	ScreenPatch);
 
+			if (!CameraConfig.Get.BetterBossDialog_UseGlobalNPC) 
+			{
+				MonoModHooks.Add(typeof(Mod).Assembly.GetType(
+					"Terraria.ModLoader.NPCLoader").GetMethod(
+					"NPCAI",defaultBindingFlags), NPCAIPatch);
+			}
+
 			Terraria.On_Main.DoDraw_UpdateCameraPosition += ScreenPatch;
 			Terraria.Audio.On_SoundEngine.PlaySound_int_int_int_int_float_float += AudioPatch;
 			Terraria.On_Main.NewText_object_Nullable1 += NewTextPatch;
@@ -641,6 +797,17 @@ namespace BetterCamera
 			Terraria.Audio.On_SoundEngine.PlaySound_int_int_int_int_float_float -= AudioPatch;
 			Terraria.On_Main.NewText_object_Nullable1 -= NewTextPatch;
 		}
+
+
+        public static void NPCAIPatch(orig_NPCAI orig , NPC npc)
+		{
+			BetterCamera.currentRunnedNPC = npc.whoAmI;
+			orig(npc);
+			BetterCamera.currentRunnedNPC = -1;
+		}
+
+		public delegate void orig_NPCAI(NPC npc);
+
         private static SoundEffectInstance AudioPatch(On_SoundEngine.orig_PlaySound_int_int_int_int_float_float orig,
 		 int type, int x, int y, int Style, float volumeScale, float pitchOffset)
         {
@@ -663,12 +830,14 @@ namespace BetterCamera
 			}
         }
 
+
 		public static void ShakeThatAss(Vector2 position ,float strength = 1f, int frames = 20) 
 		{
 			PunchCameraModifier modifier = new(position,
 			(Main.rand.NextFloat() * ((float)Math.PI * 2f)).ToRotationVector2(), strength * CameraConfig.Get.ScreenShake_Intensity, 6f, frames, 1000f, "RoarHappens");
 			Main.instance.CameraModifiers.Add(modifier);
 		}
+
 		// public static void AIPatch(Terraria.On_NPC.orig_AI orig, NPC self) 
 		// {
 		// 	BetterCamera.currentRunnedNPC = self.whoAmI;
